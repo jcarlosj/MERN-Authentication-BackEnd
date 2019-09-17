@@ -34,7 +34,7 @@ router .post( '/register', ( req, res ) => {
             
             // Hash contraseña antes de guardar en la base de datos
             bcrypt .genSalt( 10, ( err, salt ) => {
-                
+
                 // Encripta el valor del campo 'password'
                 bcrypt .hash( newUser .password, salt, ( err, hash ) => {
 
@@ -50,3 +50,57 @@ router .post( '/register', ( req, res ) => {
         }
     });
 });
+
+// Path: api/users/login
+router .post( '/login', ( req, res ) => {
+    const { errors, isValid } = validateLoginInput( req .body );        // Valida Formulario Login
+
+        // Verifica Validacion
+        if ( !isValid ) {
+            return res .status( 400 ) .json( errors );
+        }
+
+    const email = req .body .email,
+          password = req.body.password;
+
+    // Encontrar Usuario por 'email'
+        User .findOne({ email }) .then( user => {
+        // Valida si el usuario NO existe
+        if ( !user ) {
+            return res .status( 404 ) .json({ emailnotfound: 'Email not found' });
+        }
+    // Valida la contrasena
+        bcrypt .compare( password, user .password ) .then( isMatch => {
+            if ( isMatch ) {
+            
+                // Usuario encontrado: Carga 'payload'
+                const payload = {
+                    id: user.id,
+                    name: user.name
+                };
+                
+                // Token
+                jwt .sign(
+                    payload,
+                    keys.secretOrKey,
+                    {
+                        expiresIn: 31556926 // 1 year in seconds
+                    },
+                    ( err, token ) => {
+                        res.json({
+                            success: true,
+                            token: "Bearer " + token
+                        });
+                    }
+                );
+            } else {
+                return res
+                    .status( 400 )
+                    .json({ passwordincorrect: 'Contrasena incorrecta' });
+            }
+        });
+    });
+});
+
+// Exporta el Router
+module .exports = router;
